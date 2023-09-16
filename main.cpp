@@ -17,13 +17,17 @@
 #include <termios.h>
 #endif
 
-std::vector<int> Map = std::vector<int>();
+std::vector<int> grid = std::vector<int>();
 
 int mapWidth = 1;
 int mapHeight = 1;
 
-int& get_cell(int x, int y) {
-  return Map[y * mapWidth + x];
+int& get_cell_ref(int x, int y) {
+  return grid[y * mapWidth + x];
+}
+
+int get_cell(int x, int y) {
+  return grid[y * mapWidth + x];
 }
 
 const int valid_inputs[] = {'a', 'd', 'w', 's', 'q'};
@@ -62,7 +66,7 @@ void enable_raw_mode() {
   tcgetattr(STDIN_FILENO, &orig_termios);
   atexit(disable_raw_mode);
   struct termios raw = orig_termios;
-  raw.c_lflag &= ~(ECHO | ICANON);
+  raw.c_lflag &= ~(ICANON);
 
   tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 }
@@ -88,7 +92,7 @@ int main(void) {
   std::cout << "\nY Dimension:";
   std::cin >> mapHeight;
 
-  Map.resize(mapWidth * mapHeight);
+  grid.resize(mapWidth * mapHeight);
 
   spawn_rand_number_on_empty_cell();
 
@@ -108,23 +112,22 @@ int main(void) {
   }
 }
 
-
 // returns true if the game ended, whether or not it failed or win
 bool actual_game() {
-  char lowerCasedKeyboardInput = std::tolower(getchar());
+  char lowerCaseInput = std::tolower(getchar());
 
-  if (is_valid_input(lowerCasedKeyboardInput) == false) {
+  if (is_valid_input(lowerCaseInput) == false) {
     return false;
   }
 
   clear_screen();
   position_cursor_to_home();
 
-  try_push_map_cells(lowerCasedKeyboardInput);
+  try_push_map_cells(lowerCaseInput);
 
   display_header();
 
-  if (lowerCasedKeyboardInput == 'q') {
+  if (lowerCaseInput == 'q') {
     auto promptResult = prompt_question("do you want to quit? (Y/N):");
 
     if (promptResult == true) {
@@ -151,13 +154,13 @@ void try_push_map_cells(char input) {
   if (input == 'a') {
     for (int y = 0; y < mapHeight; y++)
       for (int x = 0; x <mapWidth; x++) {
-        int& currentCell = get_cell(x, y);
+        int& currentCell = get_cell_ref(x, y);
 
         if (currentCell == 0) continue;
 
         for (int i = x - 1; i >= 0; i--) {
-          int& targetCell = get_cell(i, y);
-          int& previousCell = get_cell(i + 1, y);
+          int& targetCell = get_cell_ref(i, y);
+          int& previousCell = get_cell_ref(i + 1, y);
 
           auto atEnd = (i == 0);
 
@@ -175,13 +178,13 @@ void try_push_map_cells(char input) {
   if (input == 'd') {
     for (int y = 0; y < mapHeight; y++)
       for (int x = mapWidth - 1; x >= 0; x--) {
-        int& currentCell = get_cell(x, y);
+        int& currentCell = get_cell_ref(x, y);
 
         if (currentCell == 0) continue;
 
         for (int i = x + 1; i < mapWidth; i++) {
-          auto& targetCell = get_cell(i, y);
-          auto& previousCell = get_cell(i - 1, y);
+          auto& targetCell = get_cell_ref(i, y);
+          auto& previousCell = get_cell_ref(i - 1, y);
 
           auto atEnd = (i == mapWidth - 1);
 
@@ -199,13 +202,13 @@ void try_push_map_cells(char input) {
   if (input == 'w') {
     for (int x = 0; x <mapWidth; x++)
       for (int y = 0; y < mapHeight; y++) {
-        auto& currentCell = get_cell(x, y);
+        auto& currentCell = get_cell_ref(x, y);
 
         if (currentCell == 0) continue;
 
         for (int i = y - 1; i >= 0; i--) {
-          auto& targetCell = get_cell(x, i);
-          auto& previousCell = get_cell(x, i + 1);
+          auto& targetCell = get_cell_ref(x, i);
+          auto& previousCell = get_cell_ref(x, i + 1);
 
           auto atEnd = (i == 0);
 
@@ -223,13 +226,13 @@ void try_push_map_cells(char input) {
   if (input == 's') {
     for (int x = 0; x <mapWidth; x++)
       for (int y = mapHeight - 1; y >= 0; y--) {
-        auto& currentCell = get_cell(x, y);
+        auto& currentCell = get_cell_ref(x, y);
 
         if (currentCell == 0) continue;
 
         for (int i = y + 1; i < mapHeight; i++) {
-          auto& targetCell = get_cell(x, i);
-          auto& previousCell = get_cell(x, i - 1);
+          auto& targetCell = get_cell_ref(x, i);
+          auto& previousCell = get_cell_ref(x, i - 1);
 
           auto atEnd = (i == mapHeight - 1);
 
@@ -250,29 +253,29 @@ bool has_valid_moves() {
   for (int y = 0; y < mapHeight; y++)
     for (int x = 0; x <mapWidth; x++)
     {
-      int currentCell = get_cell(x, y);
+      int currentCell = get_cell_ref(x, y);
 
       if (currentCell == 0)
         return true;
 
       // left
       if (x - 1 >= 0 &&
-          currentCell == get_cell(x - 1, y))
+          currentCell == get_cell_ref(x - 1, y))
         return true;
 
       // right
       if (x + 1 < mapWidth &&
-          currentCell == get_cell(x + 1, y))
+          currentCell == get_cell_ref(x + 1, y))
         return true;
 
       // up
       if (y - 1 >= 0 &&
-          currentCell == get_cell(x, y - 1))
+          currentCell == get_cell_ref(x, y - 1))
         return true;
 
       // down
       if (y + 1 < mapHeight &&
-          currentCell == get_cell(x, y + 1))
+          currentCell == get_cell_ref(x, y + 1))
         return true;
     }
 
@@ -325,7 +328,7 @@ void display_map() {
     display_horizontal_bars();
     
     for (int x = 0; x < mapWidth; x++) {
-      auto currentCell = get_cell(x, y);
+      auto currentCell = get_cell_ref(x, y);
 
       auto cellAsString = std::to_string(currentCell);
 
@@ -365,7 +368,7 @@ bool is_valid_input(char character) {
 bool map_contains(int value) {
    for (int y = 0; y < mapHeight; y++)
      for (int x = 0; x <mapWidth; x++) {
-       if (get_cell(x, y) == value) return true;
+       if (get_cell_ref(x, y) == value) return true;
      }
   //else
 
@@ -387,7 +390,7 @@ void spawn_rand_number_on_empty_cell() {
   while(emptyCellsToCount != 0) {
     for (int y = 0; y < mapHeight; y++)
       for (int x = 0; x <mapWidth; x++) {
-        auto currentCell = get_cell(x, y);
+        auto currentCell = get_cell_ref(x, y);
 
         if (currentCell == 0) {
           emptyCellsToCount --;
@@ -395,7 +398,7 @@ void spawn_rand_number_on_empty_cell() {
 
         if (emptyCellsToCount == 0) {
          // get_cell(x, y) = std::pow(2, random_int_ranged(1, 2 + 1));
-         get_cell(x, y) = random_int_ranged(1, 5 + 1);
+         get_cell_ref(x, y) = random_int_ranged(1, 5 + 1);
          return;
         }
       }
@@ -448,7 +451,7 @@ int get_highest_value_on_map() {
 
   for (int x = 0; x <mapWidth; x++)
     for (int y = 0; y < mapHeight; y++)
-      if (highest < get_cell(x, y)) highest = get_cell(x, y);
+      if (highest < get_cell_ref(x, y)) highest = get_cell_ref(x, y);
 
   return highest;
 }
@@ -474,7 +477,7 @@ void display_header() {
   display_colorized_number(get_highest_value_on_map());
   std::cout << '\n';
 
-  for (const auto& value : Map) {
+  for (const auto& value : grid) {
     // cannot find the value in the history
     if(value == 0) continue;
     // else

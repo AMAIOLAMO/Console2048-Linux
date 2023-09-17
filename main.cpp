@@ -12,12 +12,20 @@
 #include <thread>
 #include <vector>
 
+#include "utils/utils.h"
+
 
 #ifdef __linux__
 #include <termios.h>
 #endif
 
 std::vector<int> grid = std::vector<int>();
+
+std::vector<int> spawnableNumbers = {
+  2, 4
+};
+
+std::string previousAction = "none";
 
 int mapWidth = 1;
 int mapHeight = 1;
@@ -40,19 +48,11 @@ void display_colorized_number(int number);
 bool try_push_cells(int& currentCell, int& targetCell,
     int& previousCell, bool atEnd);
 
-template<typename T>
-void swap_references(T& a, T& b);
-
 bool is_valid_input(char character);
 int get_highest_value_on_map();
 
 bool has_valid_moves();
 bool map_contains(int value);
-
-void clear_screen();
-void position_cursor_to_home();
-
-bool prompt_question(const char* question);
 
 
 #ifdef __linux__
@@ -72,12 +72,15 @@ void enable_raw_mode() {
 }
 #endif
 
-bool actual_game();
+bool gameEnded = false;
+
+void game_loop();
 bool push_game_once(char input);
 
 std::set<int> historyOfNumbers = std::set<int>();
 
-void display_header();
+void display_header_metrics();
+void display_tail_metrics();
 
 int main(void) {
   std::srand(time(NULL));
@@ -99,55 +102,62 @@ int main(void) {
   clear_screen();
   position_cursor_to_home();
 
-  display_header();
+  display_header_metrics();
 
   display_map();
 
+  display_tail_metrics();
+
   char currentInput = 'a';
 
-  while (true) {
-    if(actual_game()) {
-      break;
-    }
+  while (gameEnded == false) {
+    game_loop();
   }
 }
 
+int currentSteps = 0;
+
 // returns true if the game ended, whether or not it failed or win
-bool actual_game() {
+void game_loop() {
   char lowerCaseInput = std::tolower(getchar());
 
   if (is_valid_input(lowerCaseInput) == false) {
-    return false;
+    return;
   }
+
+  previousAction = lowerCaseInput;
 
   clear_screen();
   position_cursor_to_home();
 
   try_push_map_cells(lowerCaseInput);
 
-  display_header();
+  display_header_metrics();
 
   if (lowerCaseInput == 'q') {
     auto promptResult = prompt_question("do you want to quit? (Y/N):");
 
     if (promptResult == true) {
       std::cout << "See you soon!";
-      return true;
+
+      gameEnded = true;
+      return;
     }
   }
   // else
-
-  if (has_valid_moves() == false) {
-    std::cout << "\nGame over!";
-    return true;
-  }
-  // else
+  currentSteps += 1;
 
   spawn_rand_number_on_empty_cell();
 
   display_map();
 
-  return false;
+  display_tail_metrics();
+
+  if (has_valid_moves() == false) {
+    std::cout << "\nGame over!";
+    gameEnded = true;
+    return;
+  }
 }
 
 void try_push_map_cells(char input) {
@@ -297,11 +307,6 @@ const char* color_codes[] = {
   "\033[3;43;30m",  // 2048
 };
 
-void pad_right_ref(std::string &str, const size_t num, const char paddingChar = ' ') {
-  if(num > str.size())
-      str.insert(str.size(), num - str.size(), paddingChar);
-}
-
 std::string horizontalBarCache = "";
 
 void display_horizontal_bars() {
@@ -375,10 +380,6 @@ bool map_contains(int value) {
   return false;
 }
 
-int random_int_ranged(int inclusiveMin, int exclusiveMax) {
-  return std::rand() % (exclusiveMax - inclusiveMin) + inclusiveMin;
-}
-
 void spawn_rand_number_on_empty_cell() {
   int emptyCellsToCount = random_int_ranged(1, mapWidth * mapHeight + 1);
 
@@ -398,29 +399,14 @@ void spawn_rand_number_on_empty_cell() {
 
         if (emptyCellsToCount == 0) {
          // get_cell(x, y) = std::pow(2, random_int_ranged(1, 2 + 1));
-         get_cell_ref(x, y) = random_int_ranged(1, 5 + 1);
+         // get_cell_ref(x, y) = random_int_ranged(1, 5 + 1);
+          get_cell_ref(x, y) = spawnableNumbers[random_int_ranged(0, spawnableNumbers.size())];
          return;
         }
       }
   }
 
   std::cout << "looped all but empty cells didnt deduct to 0";
-}
-
-void clear_screen() {
-  std::cout << "\033[2J";
-}
-
-void position_cursor_to_home() {
-  std::cout << "\033[1;1H";
-}
-
-template<typename T>
-void swap_references(T& a, T& b) {
-  int tempSwapBuffer = a;
-
-  a = b;
-  b = tempSwapBuffer;
 }
 
 bool try_push_cells(int& currentCell, int& targetCell, int& previousCell, bool atEnd) {
@@ -456,27 +442,7 @@ int get_highest_value_on_map() {
   return highest;
 }
 
-bool prompt_question(const char* question) {
-  std::cout << question;
-
-  auto lowerCasedInput = std::tolower(getchar());
-
-  if(lowerCasedInput == 'y') {
-    std::cout << "\n";
-    return true;
-  }
-
-  std::cout << "\n";
-  return false;
-}
-
-void display_header() {
-  std::cout << "== 2048  Game ==\n";
-
-  std::cout << "High score: ";
-  display_colorized_number(get_highest_value_on_map());
-  std::cout << '\n';
-
+void update_number_history() {
   for (const auto& value : grid) {
     // cannot find the value in the history
     if(value == 0) continue;
@@ -486,6 +452,23 @@ void display_header() {
       historyOfNumbers.emplace(value);
     }
   }
+}
+
+void display_header_metrics() {
+  std::cout << "== 2048  Game ==\n";
+
+  std::cout << "Spawnable Numbers: ";
+  for (const auto& value : spawnableNumbers) {
+    display_colorized_number(value);
+    std::cout << ' ';
+  }
+  std::cout << '\n';
+
+  std::cout << "High score: ";
+  display_colorized_number(get_highest_value_on_map());
+  std::cout << '\n';
+
+  update_number_history();
 
   std::cout << "number history: ";
 
@@ -494,4 +477,9 @@ void display_header() {
     std::cout << ' ';
   }
   std::cout << '\n';
+}
+
+void display_tail_metrics() {
+  std::cout << "Previous Action: " << previousAction << '\n';
+  std::cout << "Steps took: " << currentSteps << '\n';
 }

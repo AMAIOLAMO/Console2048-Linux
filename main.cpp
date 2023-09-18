@@ -259,9 +259,8 @@ void try_push_map_cells(char input) {
 }
 
 bool has_valid_moves() {
-
   for (int y = 0; y < mapHeight; y++)
-    for (int x = 0; x <mapWidth; x++)
+    for (int x = 0; x < mapWidth; x++)
     {
       int currentCell = get_cell_ref(x, y);
 
@@ -464,9 +463,13 @@ void display_header_metrics() {
   }
   std::cout << '\n';
 
+
+
   std::cout << "High score: ";
   display_colorized_number(get_highest_value_on_map());
   std::cout << '\n';
+
+
 
   update_number_history();
 
@@ -480,6 +483,6 @@ void display_header_metrics() {
 }
 
 void display_tail_metrics() {
-  std::cout << "Previous Action: " << previousAction << '\n';
+  std::cout << "Previous Action: " << previousAction << " | ";
   std::cout << "Steps took: " << currentSteps << '\n';
 }
